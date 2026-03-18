@@ -769,10 +769,9 @@ body{
       <div class="card">
         <div class="card-title">
           Tranches IR 2024
-          <button class="icon-btn" onclick="openEditSheet('fiscal-tranche',0)" style="color:var(--text3)">✎</button>
         </div>
         <div id="tranches-list"></div>
-        <button class="fab" onclick="addTranche()" style="margin-top:6px;display:none" id="fab-tranche">
+        <button class="fab" onclick="addTranche()" style="margin-top:6px">
           <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Ajouter une tranche
         </button>
@@ -817,20 +816,28 @@ body{
       <!-- Liberté financière -->
       <div class="card">
         <div class="card-title">
-          Vivre sans travailler
+          Objectif épargne
           <button class="icon-btn" onclick="openFiscalVstEdit()" style="color:var(--text3)">✎</button>
         </div>
         <div class="list-item">
-          <span class="list-item-name">Besoin mensuel</span>
-          <span class="list-item-val" id="vst-mois">—</span>
+          <span class="list-item-name">Âge actuel → cible</span>
+          <span class="list-item-val" style="color:var(--text2)" id="vst-ages">— → —</span>
         </div>
         <div class="list-item">
-          <span class="list-item-name">Besoin annuel</span>
+          <span class="list-item-name">Années d'épargne</span>
+          <span class="list-item-val" style="color:var(--blue)" id="vst-duree">—</span>
+        </div>
+        <div class="list-item">
+          <span class="list-item-name">Épargne mensuelle</span>
+          <span class="list-item-val" style="color:var(--green)" id="vst-mois">—</span>
+        </div>
+        <div class="list-item">
+          <span class="list-item-name">Total annuel</span>
           <span class="list-item-val" id="vst-an">—</span>
         </div>
         <div class="list-item">
-          <span class="list-item-name" id="vst-years-label">Sur 62 ans</span>
-          <span class="list-item-val" style="color:var(--red)" id="vst-62">—</span>
+          <span class="list-item-name">Total à l'âge cible</span>
+          <span class="list-item-val" style="color:var(--green);font-size:15px;font-weight:600" id="vst-62">—</span>
         </div>
         <div class="infobox b" style="margin-top:10px;margin-bottom:0" id="ep-rate-box">—</div>
       </div>
@@ -914,16 +921,20 @@ body{
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h3 id="sheet-edit-title">Modifier</h3>
-    <label>Nom</label>
-    <input type="text" id="edit-name">
-    <label>Montant (€)</label>
-    <input type="text" id="edit-amount" inputmode="decimal">
+    <div id="edit-name-group">
+      <label id="edit-name-label">Nom</label>
+      <input type="text" id="edit-name">
+    </div>
+    <div id="edit-amount-group">
+      <label id="edit-amount-label">Montant (€)</label>
+      <input type="text" id="edit-amount" inputmode="decimal">
+    </div>
     <div id="edit-date-group" style="display:none">
       <label>Jour de prélèvement</label>
       <input type="text" id="edit-date" inputmode="numeric">
     </div>
     <div id="edit-taux-group" style="display:none">
-      <label>Taux annuel (%)</label>
+      <label id="edit-taux-label">Taux annuel (%)</label>
       <input type="text" id="edit-taux" inputmode="decimal">
     </div>
     <div class="sheet-btns">
@@ -1245,16 +1256,13 @@ function renderTranches(){
   if(!list) return;
   const colorMap={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
   list.innerHTML=fiscalMeta.tranches.map((t,i)=>`
-    <div class="tranche-item" style="align-items:center;gap:6px">
-      <div style="flex:1;display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-        <input class="e-val" value="${esc(t.min)}" style="width:90px;font-size:11px" onchange="updateTranche(${i},'min',this.value)">
-        ${t.max?`<span style="font-size:10px;color:var(--text3)">—</span>
-        <input class="e-val" value="${esc(t.max)}" style="width:90px;font-size:11px" onchange="updateTranche(${i},'max',this.value)">`:
-        ''}
+    <div class="tranche-item">
+      <span class="tranche-range">${esc(t.min)}${t.max?' — '+esc(t.max):''}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="tranche-pct" style="color:${colorMap[t.color]||'var(--text)'}">${t.pct} %</span>
+        <button class="icon-btn" onclick="openEditTranche(${i})" style="color:var(--text3)">✎</button>
+        <button class="icon-btn" onclick="deleteTranche(${i})" style="color:var(--text3)">×</button>
       </div>
-      <input class="e-val" value="${t.pct}" inputmode="numeric" style="width:36px;text-align:center;color:${colorMap[t.color]||'var(--text)'}" onchange="updateTranche(${i},'pct',this.value)">
-      <span style="font-size:11px;color:var(--text3)">%</span>
-      <button class="icon-btn" onclick="deleteTranche(${i})" style="color:var(--text3);flex-shrink:0">×</button>
     </div>
   `).join('');
 }
@@ -1313,12 +1321,18 @@ function renderFiscalite(c){
   const r50=document.getElementById('rule-50'); if(r50) r50.textContent=fmt(c.rev*p50);
   const r30=document.getElementById('rule-30'); if(r30) r30.textContent=fmt(c.rev*p30);
   const r20=document.getElementById('rule-20'); if(r20) r20.textContent=fmt(c.rev*p20);
-  const yrs=fiscalMeta.vstYears||62;
-  const yl=document.getElementById('vst-years-label'); if(yl) yl.textContent=`Sur ${yrs} ans`;
-  const vm=document.getElementById('vst-mois'); if(vm) vm.textContent=fmt(c.charges);
-  const va=document.getElementById('vst-an'); if(va) va.textContent=fmt(c.charges*12);
-  const v62=document.getElementById('vst-62'); if(v62) v62.textContent=fmt(c.charges*12*yrs);
-  const ep=document.getElementById('ep-rate-box'); if(ep) ep.textContent=`Taux d'épargne actuel : ${pct(c.tauxEp)}`;
+  const ageActuel = fiscalMeta.vstAgeActuel || 25;
+  const ageCible  = fiscalMeta.vstAgeCible  || 50;
+  const mensuel   = fiscalMeta.vstMensuel   || 0;
+  const duree     = Math.max(0, ageCible - ageActuel);
+  const annuel    = mensuel * 12;
+  const total     = mensuel * 12 * duree;
+  const ages    = document.getElementById('vst-ages');    if(ages)    ages.textContent    = ageActuel+' ans → '+ageCible+' ans';
+  const dureeEl = document.getElementById('vst-duree');   if(dureeEl) dureeEl.textContent = duree+' ans';
+  const vm      = document.getElementById('vst-mois');    if(vm)      vm.textContent      = fmt(mensuel);
+  const va      = document.getElementById('vst-an');      if(va)      va.textContent      = fmt(annuel);
+  const v62     = document.getElementById('vst-62');      if(v62)     v62.textContent     = fmt(total);
+  const ep      = document.getElementById('ep-rate-box'); if(ep)      ep.textContent      = "Taux d'épargne actuel : "+pct(c.tauxEp);
 }
 
 // ============================================================
@@ -1382,6 +1396,19 @@ function openSheet(id){
 }
 function closeSheet(id){
   document.getElementById(id).classList.remove('open');
+  // restore name field visibility for next use
+  if(id==='sheet-edit'){
+    document.getElementById('edit-name-group').style.display='';
+    document.getElementById('edit-name-label').textContent='Nom';
+    document.getElementById('edit-name').inputMode='text';
+    document.getElementById('edit-date').placeholder='';
+    document.querySelector('#edit-date-group label').textContent='Jour de prélèvement';
+    document.getElementById('edit-amount-group').style.display='';
+    document.getElementById('edit-amount-label').textContent='Montant (€)';
+    document.getElementById('edit-taux-label').textContent='Taux annuel (%)';
+    document.getElementById('edit-taux-group').style.display='none';
+    document.getElementById('edit-date-group').style.display='none';
+  }
 }
 function closeSheetBg(e,id){
   if(e.target===document.getElementById(id)) closeSheet(id);
@@ -1432,6 +1459,8 @@ function confirmAdd(){
 // ============================================================
 function openEditSheet(key, id){
   editTarget={key,id};
+  document.getElementById('edit-name-group').style.display='';
+  document.getElementById('edit-amount-label').textContent='Montant (€)';
   const isLivret=key==='livret';
   const arr=isLivret?data.livrets:(data[key]||[]);
   const item=arr.find(r=>r.id===id);
@@ -1451,14 +1480,36 @@ function confirmEdit(){
   if(!editTarget) return;
   const {key,id}=editTarget;
   // Handle fiscal special edits
+  if(key==='fiscal-tranche-row'){
+    const i=id;
+    const t=fiscalMeta.tranches[i];
+    if(t){
+      const pct=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
+      if(!isNaN(pct)) t.pct=pct;
+      saveFiscalMeta(); renderFiscalite(calcs());
+    }
+    closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
+  }
   if(key==='fiscal-lep'){
     const amount=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
-    if(!isNaN(amount)){fiscalMeta.lepPlafond=amount;saveFiscalMeta();renderFiscalite(calcs());}
+    if(!isNaN(amount)){
+      fiscalMeta.lepPlafond=amount;
+      saveFiscalMeta();
+      const pd=document.getElementById('lep-plafond-display');
+      if(pd) pd.textContent=Math.round(amount).toLocaleString('fr-FR')+' €';
+      renderFiscalite(calcs());
+    }
     closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
   }
   if(key==='fiscal-vst'){
-    const amount=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
-    if(!isNaN(amount)){fiscalMeta.vstYears=amount;saveFiscalMeta();renderFiscalite(calcs());}
+    const ageActuel=parseInt(document.getElementById('edit-name').value)||25;
+    const mensuel=parseFloat(document.getElementById('edit-amount').value.replace(',','.'))||0;
+    const ageCible=parseInt(document.getElementById('edit-taux').value)||50;
+    fiscalMeta.vstAgeActuel=ageActuel;
+    fiscalMeta.vstMensuel=mensuel;
+    fiscalMeta.vstAgeCible=ageCible;
+    saveFiscalMeta();
+    renderFiscalite(calcs());
     closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
   }
   const isLivret=key==='livret';
@@ -1563,11 +1614,25 @@ document.addEventListener('keydown',e=>{
 
 
 
+
+function openEditTranche(i){
+  const t=fiscalMeta.tranches[i];
+  if(!t) return;
+  editTarget={key:'fiscal-tranche-row',id:i};
+  document.getElementById('sheet-edit-title').textContent='Modifier la tranche';
+  document.getElementById('edit-name-group').style.display='none';
+  document.getElementById('edit-amount-label').textContent='Taux (%)';
+  document.getElementById('edit-amount').value=t.pct;
+  document.getElementById('edit-date-group').style.display='none';
+  document.getElementById('edit-taux-group').style.display='none';
+  document.getElementById('sheet-edit').classList.add('open');
+}
 function openFiscalLepEdit(){
   editTarget={key:'fiscal-lep',id:0};
   document.getElementById('sheet-edit-title').textContent='Modifier le plafond LEP';
-  document.getElementById('edit-name').value='Plafond 1 part';
-  document.getElementById('edit-amount').value=fiscalMeta.lepPlafond;
+  document.getElementById('edit-name-group').style.display='none';
+  document.getElementById('edit-amount-label').textContent='Plafond (€)';
+  document.getElementById('edit-amount').value=fiscalMeta.lepPlafond||21353;
   document.getElementById('edit-date-group').style.display='none';
   document.getElementById('edit-taux-group').style.display='none';
   document.getElementById('sheet-edit').classList.add('open');
@@ -1575,11 +1640,21 @@ function openFiscalLepEdit(){
 
 function openFiscalVstEdit(){
   editTarget={key:'fiscal-vst',id:0};
-  document.getElementById('sheet-edit-title').textContent='Modifier les années';
-  document.getElementById('edit-name').value='Vivre sans travailler';
-  document.getElementById('edit-amount').value=fiscalMeta.vstYears;
+  document.getElementById('sheet-edit-title').textContent='Objectif épargne';
+  // age actuel in name field
+  document.getElementById('edit-name-group').style.display='block';
+  document.getElementById('edit-name-label').textContent='Âge actuel';
+  document.getElementById('edit-name').value=fiscalMeta.vstAgeActuel||25;
+  document.getElementById('edit-name').inputMode='numeric';
+  // mensuel in amount field
+  document.getElementById('edit-amount-label').textContent='Épargne mensuelle (€)';
+  document.getElementById('edit-amount').value=fiscalMeta.vstMensuel||0;
+  // age cible in taux field
   document.getElementById('edit-date-group').style.display='none';
-  document.getElementById('edit-taux-group').style.display='none';
+  document.getElementById('edit-taux-group').style.display='block';
+  document.getElementById('edit-taux-label').textContent='Âge cible';
+  document.getElementById('edit-taux').inputMode='numeric';
+  document.getElementById('edit-taux').value=fiscalMeta.vstAgeCible||50;
   document.getElementById('sheet-edit').classList.add('open');
 }
 
