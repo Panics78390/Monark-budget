@@ -768,7 +768,8 @@ body{
       <!-- Tranche -->
       <div class="card">
         <div class="card-title">
-          Tranches IR 2024
+          <span id="tranche-card-title">Tranches IR 2024</span>
+          <button class="icon-btn" onclick="openEditTrancheTitle()" style="color:var(--text3)">✎</button>
         </div>
         <div id="tranches-list"></div>
         <button class="fab" onclick="addTranche()" style="margin-top:6px">
@@ -816,7 +817,7 @@ body{
       <!-- Liberté financière -->
       <div class="card">
         <div class="card-title">
-          Objectif épargne
+          <span id="vst-card-title">Objectif épargne</span>
           <button class="icon-btn" onclick="openFiscalVstEdit()" style="color:var(--text3)">✎</button>
         </div>
         <div class="list-item">
@@ -1303,6 +1304,8 @@ function applyFiscalMetaToInputs(){
 function renderFiscalite(c){
   applyFiscalMetaToInputs();
   renderTranches();
+  const tct=document.getElementById('tranche-card-title');
+  if(tct) tct.textContent=fiscalMeta.trancheTitre||'Tranches IR 2024';
   const revAn=c.rev*12;
   // find tranche
   let trancheStr='—';
@@ -1333,6 +1336,7 @@ function renderFiscalite(c){
   const va      = document.getElementById('vst-an');      if(va)      va.textContent      = fmt(annuel);
   const v62     = document.getElementById('vst-62');      if(v62)     v62.textContent     = fmt(total);
   const ep      = document.getElementById('ep-rate-box'); if(ep)      ep.textContent      = "Taux d'épargne actuel : "+pct(c.tauxEp);
+  const vct=document.getElementById('vst-card-title'); if(vct) vct.textContent=fiscalMeta.vstTitre||'Objectif épargne';
 }
 
 // ============================================================
@@ -1404,6 +1408,7 @@ function closeSheet(id){
     document.getElementById('edit-date').placeholder='';
     document.querySelector('#edit-date-group label').textContent='Jour de prélèvement';
     document.getElementById('edit-amount-group').style.display='';
+    document.getElementById('edit-amount-label').textContent='Montant (€)';
     document.getElementById('edit-amount-label').textContent='Montant (€)';
     document.getElementById('edit-taux-label').textContent='Taux annuel (%)';
     document.getElementById('edit-taux-group').style.display='none';
@@ -1480,11 +1485,22 @@ function confirmEdit(){
   if(!editTarget) return;
   const {key,id}=editTarget;
   // Handle fiscal special edits
+  if(key==='fiscal-tranche-title'){
+    const titre=document.getElementById('edit-name').value.trim();
+    if(titre){ fiscalMeta.trancheTitre=titre; saveFiscalMeta(); }
+    const el=document.getElementById('tranche-card-title');
+    if(el) el.textContent=fiscalMeta.trancheTitre;
+    closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
+  }
   if(key==='fiscal-tranche-row'){
     const i=id;
     const t=fiscalMeta.tranches[i];
     if(t){
-      const pct=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
+      const min=document.getElementById('edit-name').value.trim();
+      const max=document.getElementById('edit-amount').value.trim();
+      const pct=parseFloat(document.getElementById('edit-taux').value.replace(',','.'));
+      if(min) t.min=min;
+      t.max=max||'';
       if(!isNaN(pct)) t.pct=pct;
       saveFiscalMeta(); renderFiscalite(calcs());
     }
@@ -1502,11 +1518,13 @@ function confirmEdit(){
     closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
   }
   if(key==='fiscal-vst'){
-    const ageActuel=parseInt(document.getElementById('edit-name').value)||25;
+    const titre=document.getElementById('edit-name').value.trim();
     const mensuel=parseFloat(document.getElementById('edit-amount').value.replace(',','.'))||0;
+    const ageActuel=parseInt(document.getElementById('edit-date').value)||25;
     const ageCible=parseInt(document.getElementById('edit-taux').value)||50;
-    fiscalMeta.vstAgeActuel=ageActuel;
+    if(titre) fiscalMeta.vstTitre=titre;
     fiscalMeta.vstMensuel=mensuel;
+    fiscalMeta.vstAgeActuel=ageActuel;
     fiscalMeta.vstAgeCible=ageCible;
     saveFiscalMeta();
     renderFiscalite(calcs());
@@ -1615,16 +1633,40 @@ document.addEventListener('keydown',e=>{
 
 
 
+
+function openEditTrancheTitle(){
+  editTarget={key:'fiscal-tranche-title',id:0};
+  document.getElementById('sheet-edit-title').textContent='Modifier le titre';
+  document.getElementById('edit-name-group').style.display='block';
+  document.getElementById('edit-name-label').textContent='Titre de la section';
+  document.getElementById('edit-name').value=fiscalMeta.trancheTitre||'Tranches IR 2024';
+  document.getElementById('edit-name').inputMode='text';
+  document.getElementById('edit-amount-label').textContent='Montant (€)';
+  document.getElementById('edit-amount').value='';
+  document.getElementById('edit-amount-group').style.display='none';
+  document.getElementById('edit-date-group').style.display='none';
+  document.getElementById('edit-taux-group').style.display='none';
+  document.getElementById('sheet-edit').classList.add('open');
+}
 function openEditTranche(i){
   const t=fiscalMeta.tranches[i];
   if(!t) return;
   editTarget={key:'fiscal-tranche-row',id:i};
   document.getElementById('sheet-edit-title').textContent='Modifier la tranche';
-  document.getElementById('edit-name-group').style.display='none';
-  document.getElementById('edit-amount-label').textContent='Taux (%)';
-  document.getElementById('edit-amount').value=t.pct;
+  // "De" in name field
+  document.getElementById('edit-name-group').style.display='block';
+  document.getElementById('edit-name-label').textContent='De (ex: 0 € ou + de 177 107 €)';
+  document.getElementById('edit-name').value=t.min||'';
+  document.getElementById('edit-name').inputMode='text';
+  // "À" in amount field
+  document.getElementById('edit-amount-label').textContent='À (laisser vide si dernière tranche)';
+  document.getElementById('edit-amount').value=t.max||'';
+  // Taux in taux field
   document.getElementById('edit-date-group').style.display='none';
-  document.getElementById('edit-taux-group').style.display='none';
+  document.getElementById('edit-taux-group').style.display='block';
+  document.getElementById('edit-taux-label').textContent='Taux (%)';
+  document.getElementById('edit-taux').inputMode='decimal';
+  document.getElementById('edit-taux').value=t.pct||0;
   document.getElementById('sheet-edit').classList.add('open');
 }
 function openFiscalLepEdit(){
@@ -1638,19 +1680,24 @@ function openFiscalLepEdit(){
   document.getElementById('sheet-edit').classList.add('open');
 }
 
+
 function openFiscalVstEdit(){
   editTarget={key:'fiscal-vst',id:0};
   document.getElementById('sheet-edit-title').textContent='Objectif épargne';
-  // age actuel in name field
+  // titre in name field
   document.getElementById('edit-name-group').style.display='block';
-  document.getElementById('edit-name-label').textContent='Âge actuel';
-  document.getElementById('edit-name').value=fiscalMeta.vstAgeActuel||25;
-  document.getElementById('edit-name').inputMode='numeric';
+  document.getElementById('edit-name-label').textContent='Titre de la section';
+  document.getElementById('edit-name').value=fiscalMeta.vstTitre||'Objectif épargne';
+  document.getElementById('edit-name').inputMode='text';
   // mensuel in amount field
+  document.getElementById('edit-amount-group').style.display='block';
   document.getElementById('edit-amount-label').textContent='Épargne mensuelle (€)';
   document.getElementById('edit-amount').value=fiscalMeta.vstMensuel||0;
-  // age cible in taux field
-  document.getElementById('edit-date-group').style.display='none';
+  // age actuel + age cible in date/taux fields
+  document.getElementById('edit-date-group').style.display='block';
+  document.querySelector('#edit-date-group label').textContent='Âge actuel';
+  document.getElementById('edit-date').inputMode='numeric';
+  document.getElementById('edit-date').value=fiscalMeta.vstAgeActuel||25;
   document.getElementById('edit-taux-group').style.display='block';
   document.getElementById('edit-taux-label').textContent='Âge cible';
   document.getElementById('edit-taux').inputMode='numeric';
