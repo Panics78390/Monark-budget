@@ -632,6 +632,7 @@ body{
           <span id="header-name">Moi</span>
         </button>
         <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème"></button>
+        <button class="theme-toggle" onclick="exportPDF()" title="Export PDF" style="font-size:14px">⬇</button>
       </div>
 
       <!-- KPIs -->
@@ -1721,6 +1722,160 @@ function toggleFiscalEdit(){
   btn.innerHTML = fiscalEditMode
     ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Terminé'
     : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifier';
+}
+
+
+// ============================================================
+// EXPORT PDF
+// ============================================================
+function exportPDF(){
+  const c = calcs();
+  const p = profiles.find(x=>x.id===activeProfileId)||{name:'Monark'};
+  const now = new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  script.onload = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const W=210, M=16, CW=W-M*2;
+    let y=0;
+
+    // Colors
+    const GREEN=[29,184,122], BLUE=[58,143,232], AMBER=[224,154,32], RED=[232,80,79];
+    const DARK=[15,15,14], GRAY=[138,136,128], LIGHT=[240,237,230], BG2=[26,26,24];
+
+    const rect=(x,y,w,h,col,r=0)=>{ doc.setFillColor(...col); doc.roundedRect(x,y,w,h,r,r,'F'); };
+    const setFont=(size,style,col)=>{ doc.setFontSize(size); doc.setFont('helvetica',style); doc.setTextColor(...col); };
+    const hrule=(yy)=>{ doc.setDrawColor(...GRAY); doc.setLineWidth(0.2); doc.line(M,yy,W-M,yy); };
+
+    // ── HEADER ──
+    rect(0,0,W,28,DARK);
+    setFont(18,'bold',GREEN); doc.text('MONARK',M,18);
+    setFont(8,'normal',GRAY); doc.text('Maître de ses finances',M,24);
+    setFont(9,'normal',LIGHT); doc.text(p.name+' — '+now.charAt(0).toUpperCase()+now.slice(1), W-M, 18, {align:'right'});
+    y=36;
+
+    // ── KPIs ──
+    const kpis=[
+      {lbl:'Revenus / mois', val:fmt(c.rev), col:GREEN},
+      {lbl:'Charges totales', val:fmt(c.charges), col:RED},
+      {lbl:'Solde restant', val:fmt(c.solde), col:AMBER},
+      {lbl:'Taux épargne', val:pct(c.tauxEp), col:BLUE},
+    ];
+    const kw=(CW-9)/4;
+    kpis.forEach((k,i)=>{
+      const kx=M+i*(kw+3);
+      rect(kx,y,kw,18,BG2,2);
+      doc.setDrawColor(...k.col); doc.setLineWidth(0.8); doc.line(kx,y+16,kx+kw*0.6,y+16);
+      setFont(7,'normal',GRAY); doc.text(k.lbl,kx+3,y+6);
+      setFont(10,'bold',k.col); doc.text(k.val,kx+3,y+13);
+    });
+    y+=26;
+
+    // ── SECTION helper ──
+    const sectionTitle=(title,yy)=>{
+      setFont(8,'bold',GRAY); doc.text(title.toUpperCase(),M,yy);
+      hrule(yy+2); return yy+7;
+    };
+
+    const tableRow=(cols,widths,yy,isHead,isFoot,isAlt)=>{
+      if(isAlt&&!isHead&&!isFoot) rect(M,yy-3.5,CW,5.5,[248,247,243]);
+      if(isFoot) rect(M,yy-3.5,CW,6,BG2);
+      cols.forEach((col,i)=>{
+        const tx=i===0?M+2:M+widths.slice(0,i).reduce((a,b)=>a+b,0)+2;
+        const align=i===0?'left':'right';
+        const tx2=align==='right'?M+widths.slice(0,i+1).reduce((a,b)=>a+b,0)-1:tx;
+        if(isHead) setFont(7,'bold',GRAY);
+        else if(isFoot) setFont(8,'bold',i===0?[30,30,28]:DARK);
+        else setFont(8,'normal',i===0?[80,80,75]:DARK);
+        doc.text(String(col),tx2,yy,{align});
+      });
+    };
+
+    const rw=[CW*0.5,CW*0.25,CW*0.25];
+
+    // ── REVENUS ──
+    y=sectionTitle('Revenus',y);
+    [['Source','/ mois','/ an'],...data.revenus.map(r=>[r.name,fmt(r.val),fmt(r.val*12)]),['Total',fmt(c.rev),fmt(c.rev*12)]]
+      .forEach((row,i,arr)=>{ tableRow(row,rw,y,i===0,i===arr.length-1,i%2===0); y+=5.5; });
+
+    y+=4;
+
+    // ── CHARGES VARIABLES ──
+    y=sectionTitle('Charges variables / Épargne',y);
+    [['Poste','/ mois','/ an'],...data.variables.map(r=>[r.name,fmt(r.val),fmt(r.val*12)]),['Total',fmt(c.vars),fmt(c.vars*12)]]
+      .forEach((row,i,arr)=>{ tableRow(row,rw,y,i===0,i===arr.length-1,i%2===0); y+=5.5; });
+
+    y+=4;
+
+    // ── CHARGES FIXES ──
+    y=sectionTitle('Charges fixes',y);
+    const fw=[CW*0.45,CW*0.22,CW*0.22,CW*0.11];
+    [['Poste','/ mois','/ an','Prélévement'],...data.fixes.map(r=>[r.name,fmt(r.val),fmt(r.val*12),r.date?'le '+r.date:'-']),['Total',fmt(c.fixes),fmt(c.fixes*12),'']]
+      .forEach((row,i,arr)=>{ tableRow(row,fw,y,i===0,i===arr.length-1,i%2===0); y+=5.5; });
+
+    // ── PAGE 2 ──
+    doc.addPage(); y=16;
+    rect(0,0,W,10,DARK);
+    setFont(8,'bold',LIGHT); doc.text('Épargne & Fiscalité — '+p.name,M,7);
+    y=18;
+
+    // ── ÉPARGNE ──
+    y=sectionTitle("Livrets d'épargne",y);
+    const lw=[CW*0.3,CW*0.15,CW*0.2,CW*0.18,CW*0.17];
+    [['Livret','Taux','Solde','Intérêts/mois','Intérêts/an'],
+      ...data.livrets.map(l=>[l.name,l.taux+'%',fmt(l.solde),fmt(intM(l.solde,l.taux)),fmt(intA(l.solde,l.taux))]),
+      ['Total épargne','',fmt(c.epTotal),'',fmt(c.intTotal)]
+    ].forEach((row,i,arr)=>{ tableRow(row,lw,y,i===0,i===arr.length-1,i%2===0); y+=5.5; });
+
+    y+=6;
+
+    // ── FISCALITÉ ──
+    y=sectionTitle(fiscalMeta.trancheTitre||'Tranches IR',y);
+    fiscalMeta.tranches.forEach((t,i)=>{
+      if(i%2===0) rect(M,y-3.5,CW,5.5,[248,247,243]);
+      setFont(8,'normal',DARK); doc.text(t.min+(t.max?' — '+t.max:''),M+2,y);
+      const col=t.color==='green'?GREEN:t.color==='amber'?AMBER:RED;
+      setFont(8,'bold',col); doc.text(t.pct+' %',W-M-2,y,{align:'right'});
+      y+=5.5;
+    });
+
+    y+=6;
+
+    // ── OBJECTIF ÉPARGNE ──
+    y=sectionTitle(fiscalMeta.vstTitre||'Objectif épargne',y);
+    const ageA=fiscalMeta.vstAgeActuel||25, ageC=fiscalMeta.vstAgeCible||50;
+    const duree=Math.max(0,ageC-ageA);
+    const mensuel=fiscalMeta.vstMensuel||0;
+    [
+      ['Âge actuel → cible', ageA+' ans → '+ageC+' ans'],
+      ["Années d'épargne", duree+' ans'],
+      ['Épargne mensuelle', fmt(mensuel)],
+      ['Total annuel', fmt(mensuel*12)],
+      ['Total à l\'âge cible', fmt(mensuel*12*duree)],
+    ].forEach(([lbl,val],i)=>{
+      if(i%2===0) rect(M,y-3.5,CW,5.5,[248,247,243]);
+      setFont(8,'normal',DARK); doc.text(lbl,M+2,y);
+      setFont(8,'bold',DARK); doc.text(val,W-M-2,y,{align:'right'});
+      y+=5.5;
+    });
+
+    // ── FOOTER ──
+    const totalPages=doc.getNumberOfPages();
+    for(let pg=1;pg<=totalPages;pg++){
+      doc.setPage(pg);
+      hrule(287);
+      setFont(7,'normal',GRAY);
+      doc.text('Monark — Maître de ses finances — '+p.name,M,292);
+      doc.text('Page '+pg+'/'+totalPages,W-M,292,{align:'right'});
+    }
+
+    doc.save('monark-'+p.name.toLowerCase()+'.pdf');
+    toast('PDF généré !','g');
+  };
+  script.onerror=()=>toast('Erreur chargement PDF','r');
+  document.head.appendChild(script);
 }
 
 // ============================================================
