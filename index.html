@@ -547,6 +547,21 @@ body{
 }
 .icon-btn:active{background:var(--bg4)}
 
+
+/* FISCAL EDIT MODE */
+.fiscal-edit-hint{font-size:11px;color:var(--text3);text-align:center;padding:6px 0 2px;display:none}
+.fiscal-editing .fiscal-edit-hint{display:block}
+.fiscal-editing .e-name{background:var(--bg3)!important;border:0.5px solid var(--border2)!important;color:var(--text)!important;border-radius:4px;padding:2px 6px}
+.fiscal-editing .e-val{border-color:var(--border2)!important;background:var(--bg3)!important}
+.fiscal-edit-btn{
+  display:flex;align-items:center;gap:5px;
+  background:none;border:0.5px solid var(--border2);
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+  color:var(--text2);padding:6px 12px;border-radius:var(--rs);cursor:pointer;
+  transition:all .15s;
+}
+.fiscal-edit-btn:active{background:var(--bg3)}
+.fiscal-edit-btn.active{background:var(--green);color:#000;border-color:var(--green)}
 /* SWIPE HINT */
 .swipe-container{overflow:hidden}
 .row-swipe{
@@ -748,52 +763,76 @@ body{
     <div class="screen" id="screen-fiscal">
       <div class="screen-header" style="margin-bottom:16px">
         <div class="screen-title">Fiscalité</div>
+        <button class="fiscal-edit-btn" id="fiscal-edit-btn" onclick="toggleFiscalEdit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Modifier
+        </button>
       </div>
+      <div class="fiscal-edit-hint">Appuyez sur les champs pour les modifier</div>
 
       <!-- Tranche -->
       <div class="card">
-        <div class="card-title">Tranches IR 2024</div>
-        <div class="tranche-item"><span class="tranche-range">0 € — 11 294 €</span><span class="tranche-pct" style="color:var(--green)">0 %</span></div>
-        <div class="tranche-item"><span class="tranche-range">11 295 € — 28 797 €</span><span class="tranche-pct" style="color:var(--amber)">11 %</span></div>
-        <div class="tranche-item"><span class="tranche-range">28 798 € — 82 341 €</span><span class="tranche-pct" style="color:var(--amber)">30 %</span></div>
-        <div class="tranche-item"><span class="tranche-range">82 342 € — 177 106 €</span><span class="tranche-pct" style="color:var(--red)">41 %</span></div>
-        <div class="tranche-item"><span class="tranche-range">+ de 177 107 €</span><span class="tranche-pct" style="color:var(--red)">45 %</span></div>
+        <div class="card-title">
+          <input class="e-name" id="fiscal-tranche-titre" value="Tranches IR 2024" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);width:100%" onchange="saveFiscalMeta()">
+        </div>
+        <div id="tranches-list"></div>
+        <button class="fab" onclick="addTranche()" style="margin-top:6px">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter une tranche
+        </button>
         <div class="infobox b" style="margin-top:12px;margin-bottom:0" id="tranche-info">—</div>
       </div>
 
       <!-- LEP -->
       <div class="card">
-        <div class="card-title">Livret d'Épargne Populaire</div>
+        <div class="card-title">
+          <input class="e-name" id="fiscal-lep-titre" value="Livret d'Épargne Populaire" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);width:100%" onchange="saveFiscalMeta()">
+        </div>
         <div class="list-item">
           <span class="list-item-name">Plafond 1 part</span>
-          <span class="list-item-val" style="font-family:'JetBrains Mono',monospace">21 353 €</span>
+          <input class="e-val" id="lep-plafond" value="21353" inputmode="numeric" onchange="saveFiscalMeta();renderFiscalite(calcs())" style="width:100px;text-align:right;font-family:'JetBrains Mono',monospace">
         </div>
         <div class="infobox" id="lep-box" style="margin-top:8px;margin-bottom:0">—</div>
       </div>
 
       <!-- Règle 50/30/20 -->
       <div class="card">
-        <div class="card-title">Règle 50 / 30 / 20</div>
+        <div class="card-title">
+          <input class="e-name" id="fiscal-regle-titre" value="Règle 50 / 30 / 20" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);width:100%" onchange="saveFiscalMeta()">
+        </div>
         <div class="rule-row">
           <span class="rule-color" style="background:#1DB87A"></span>
-          <span class="rule-label">Essentiel (50 %)</span>
-          <span class="rule-val" style="color:var(--green)" id="rule-50">—</span>
+          <input class="e-name" id="rule-lbl-50" value="Essentiel" style="flex:1;font-size:13px" onchange="saveFiscalMeta()">
+          <input class="e-val" id="rule-pct-50" value="50" inputmode="numeric" style="width:44px;text-align:center" onchange="saveFiscalMeta();renderFiscalite(calcs())">
+          <span style="font-size:12px;color:var(--text3);margin:0 4px">%</span>
+          <span class="rule-val" style="color:var(--green);width:70px;text-align:right" id="rule-50">—</span>
         </div>
         <div class="rule-row">
           <span class="rule-color" style="background:#E09A20"></span>
-          <span class="rule-label">Plaisir (30 %)</span>
-          <span class="rule-val" style="color:var(--amber)" id="rule-30">—</span>
+          <input class="e-name" id="rule-lbl-30" value="Plaisir" style="flex:1;font-size:13px" onchange="saveFiscalMeta()">
+          <input class="e-val" id="rule-pct-30" value="30" inputmode="numeric" style="width:44px;text-align:center" onchange="saveFiscalMeta();renderFiscalite(calcs())">
+          <span style="font-size:12px;color:var(--text3);margin:0 4px">%</span>
+          <span class="rule-val" style="color:var(--amber);width:70px;text-align:right" id="rule-30">—</span>
         </div>
         <div class="rule-row">
           <span class="rule-color" style="background:#3A8FE8"></span>
-          <span class="rule-label">Épargne (20 %)</span>
-          <span class="rule-val" style="color:var(--blue)" id="rule-20">—</span>
+          <input class="e-name" id="rule-lbl-20" value="Épargne" style="flex:1;font-size:13px" onchange="saveFiscalMeta()">
+          <input class="e-val" id="rule-pct-20" value="20" inputmode="numeric" style="width:44px;text-align:center" onchange="saveFiscalMeta();renderFiscalite(calcs())">
+          <span style="font-size:12px;color:var(--text3);margin:0 4px">%</span>
+          <span class="rule-val" style="color:var(--blue);width:70px;text-align:right" id="rule-20">—</span>
         </div>
       </div>
 
       <!-- Liberté financière -->
       <div class="card">
-        <div class="card-title">Vivre sans travailler</div>
+        <div class="card-title">
+          <input class="e-name" id="fiscal-vst-titre" value="Vivre sans travailler" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);width:60%" onchange="saveFiscalMeta()">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:11px;color:var(--text3)">Sur</span>
+            <input class="e-val" id="vst-years" value="62" inputmode="numeric" style="width:40px;text-align:center" onchange="saveFiscalMeta();renderFiscalite(calcs())">
+            <span style="font-size:11px;color:var(--text3)">ans</span>
+          </div>
+        </div>
         <div class="list-item">
           <span class="list-item-name">Besoin mensuel</span>
           <span class="list-item-val" id="vst-mois">—</span>
@@ -803,11 +842,12 @@ body{
           <span class="list-item-val" id="vst-an">—</span>
         </div>
         <div class="list-item">
-          <span class="list-item-name">Sur 62 ans</span>
+          <span class="list-item-name" id="vst-years-label">Sur 62 ans</span>
           <span class="list-item-val" style="color:var(--red)" id="vst-62">—</span>
         </div>
         <div class="infobox b" style="margin-top:10px;margin-bottom:0" id="ep-rate-box">—</div>
       </div>
+
     </div>
 
   </div><!-- end screens -->
@@ -980,6 +1020,7 @@ function init() {
   loadTheme();
   loadProfilesMeta();
   loadProfileData();
+  loadFiscalMeta();
   initCharts();
   renderAll();
 }
@@ -1179,27 +1220,133 @@ function deleteLivret(id){
 }
 
 // ============================================================
+// FISCAL META DATA
+// ============================================================
+const DEFAULT_TRANCHES = [
+  {min:'0 €',max:'11 294 €',pct:'0',color:'green'},
+  {min:'11 295 €',max:'28 797 €',pct:'11',color:'amber'},
+  {min:'28 798 €',max:'82 341 €',pct:'30',color:'amber'},
+  {min:'82 342 €',max:'177 106 €',pct:'41',color:'red'},
+  {min:'+ de 177 107 €',max:'',pct:'45',color:'red'},
+];
+
+let fiscalMeta = {
+  trancheTitre:'Tranches IR 2024',
+  lepTitre:"Livret d'Épargne Populaire",
+  lepPlafond:21353,
+  regleTitre:'Règle 50 / 30 / 20',
+  regleLbl50:'Essentiel', reglePct50:50,
+  regleLbl30:'Plaisir',   reglePct30:30,
+  regleLbl20:'Épargne',   reglePct20:20,
+  vstTitre:'Vivre sans travailler',
+  vstYears:62,
+  tranches: JSON.parse(JSON.stringify(DEFAULT_TRANCHES))
+};
+
+function loadFiscalMeta(){
+  try {
+    const s=localStorage.getItem('bgt_fiscal_'+activeProfileId);
+    if(s) fiscalMeta=JSON.parse(s);
+  } catch(e){}
+}
+function saveFiscalMeta(){
+  // read inputs back into fiscalMeta
+  const ti = v => { const el=document.getElementById(v); return el?el.value:null; };
+  const tn = v => { const el=document.getElementById(v); return el?parseFloat(el.value)||0:0; };
+  if(ti('fiscal-tranche-titre')) fiscalMeta.trancheTitre=ti('fiscal-tranche-titre');
+  if(ti('fiscal-lep-titre')) fiscalMeta.lepTitre=ti('fiscal-lep-titre');
+  fiscalMeta.lepPlafond=tn('lep-plafond')||21353;
+  if(ti('fiscal-regle-titre')) fiscalMeta.regleTitre=ti('fiscal-regle-titre');
+  if(ti('rule-lbl-50')) fiscalMeta.regleLbl50=ti('rule-lbl-50');
+  fiscalMeta.reglePct50=tn('rule-pct-50')||50;
+  if(ti('rule-lbl-30')) fiscalMeta.regleLbl30=ti('rule-lbl-30');
+  fiscalMeta.reglePct30=tn('rule-pct-30')||30;
+  if(ti('rule-lbl-20')) fiscalMeta.regleLbl20=ti('rule-lbl-20');
+  fiscalMeta.reglePct20=tn('rule-pct-20')||20;
+  if(ti('fiscal-vst-titre')) fiscalMeta.vstTitre=ti('fiscal-vst-titre');
+  fiscalMeta.vstYears=tn('vst-years')||62;
+  localStorage.setItem('bgt_fiscal_'+activeProfileId, JSON.stringify(fiscalMeta));
+}
+
+function renderTranches(){
+  const list=document.getElementById('tranches-list');
+  if(!list) return;
+  const colorMap={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
+  list.innerHTML=fiscalMeta.tranches.map((t,i)=>`
+    <div class="tranche-item" style="align-items:center;gap:6px">
+      <div style="flex:1;display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+        <input class="e-val" value="${esc(t.min)}" style="width:90px;font-size:11px" onchange="updateTranche(${i},'min',this.value)">
+        ${t.max?`<span style="font-size:10px;color:var(--text3)">—</span>
+        <input class="e-val" value="${esc(t.max)}" style="width:90px;font-size:11px" onchange="updateTranche(${i},'max',this.value)">`:
+        ''}
+      </div>
+      <input class="e-val" value="${t.pct}" inputmode="numeric" style="width:36px;text-align:center;color:${colorMap[t.color]||'var(--text)'}" onchange="updateTranche(${i},'pct',this.value)">
+      <span style="font-size:11px;color:var(--text3)">%</span>
+      <button class="icon-btn" onclick="deleteTranche(${i})" style="color:var(--text3);flex-shrink:0">×</button>
+    </div>
+  `).join('');
+}
+
+function updateTranche(i,field,val){
+  fiscalMeta.tranches[i][field]=val;
+  saveFiscalMeta();
+  renderFiscalite(calcs());
+}
+function deleteTranche(i){
+  if(fiscalMeta.tranches.length<=1){toast('Il faut au moins une tranche.','a');return;}
+  fiscalMeta.tranches.splice(i,1);
+  saveFiscalMeta();
+  renderFiscalite(calcs());
+}
+function addTranche(){
+  fiscalMeta.tranches.push({min:'0 €',max:'',pct:'0',color:'green'});
+  saveFiscalMeta();
+  renderFiscalite(calcs());
+}
+
+function applyFiscalMetaToInputs(){
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
+  set('fiscal-tranche-titre',fiscalMeta.trancheTitre);
+  set('fiscal-lep-titre',fiscalMeta.lepTitre);
+  set('lep-plafond',fiscalMeta.lepPlafond);
+  set('fiscal-regle-titre',fiscalMeta.regleTitre);
+  set('rule-lbl-50',fiscalMeta.regleLbl50); set('rule-pct-50',fiscalMeta.reglePct50);
+  set('rule-lbl-30',fiscalMeta.regleLbl30); set('rule-pct-30',fiscalMeta.reglePct30);
+  set('rule-lbl-20',fiscalMeta.regleLbl20); set('rule-pct-20',fiscalMeta.reglePct20);
+  set('fiscal-vst-titre',fiscalMeta.vstTitre);
+  set('vst-years',fiscalMeta.vstYears);
+}
+
+// ============================================================
 // FISCALITE
 // ============================================================
 function renderFiscalite(c){
+  applyFiscalMetaToInputs();
+  renderTranches();
   const revAn=c.rev*12;
-  let tranche='0 %';
-  if(revAn>177106) tranche='45 %';
-  else if(revAn>82341) tranche='41 %';
-  else if(revAn>28797) tranche='30 %';
-  else if(revAn>11294) tranche='11 %';
-  document.getElementById('tranche-info').textContent=`Revenu annuel estimé : ${fmt(revAn)} → Tranche ${tranche}`;
-  const elig=revAn<=21353;
+  // find tranche
+  let trancheStr='—';
+  const sorted=[...fiscalMeta.tranches].sort((a,b)=>parseFloat(a.pct)-parseFloat(b.pct));
+  for(const t of fiscalMeta.tranches){
+    const minVal=parseFloat((t.min||'0').replace(/[^0-9]/g,''))||0;
+    if(revAn>=minVal) trancheStr=t.pct+' %';
+  }
+  const info=document.getElementById('tranche-info');
+  if(info) info.textContent=`Revenu annuel estimé : ${fmt(revAn)} → Tranche ${trancheStr}`;
+  const plafond=fiscalMeta.lepPlafond||21353;
+  const elig=revAn<=plafond;
   const lepBox=document.getElementById('lep-box');
-  lepBox.textContent=elig?'✓ Tu es éligible au LEP':'✗ Revenu trop élevé pour le LEP (> 21 353 €)';
-  lepBox.className='infobox '+(elig?'g':'r');
-  document.getElementById('rule-50').textContent=fmt(c.rev*0.5);
-  document.getElementById('rule-30').textContent=fmt(c.rev*0.3);
-  document.getElementById('rule-20').textContent=fmt(c.rev*0.2);
-  document.getElementById('vst-mois').textContent=fmt(c.charges);
-  document.getElementById('vst-an').textContent=fmt(c.charges*12);
-  document.getElementById('vst-62').textContent=fmt(c.charges*12*62);
-  document.getElementById('ep-rate-box').textContent=`Taux d'épargne actuel : ${pct(c.tauxEp)}`;
+  if(lepBox){lepBox.textContent=elig?'✓ Tu es éligible':'✗ Revenu trop élevé (> '+Math.round(plafond).toLocaleString('fr-FR')+' €)';lepBox.className='infobox '+(elig?'g':'r');}
+  const p50=fiscalMeta.reglePct50/100, p30=fiscalMeta.reglePct30/100, p20=fiscalMeta.reglePct20/100;
+  const r50=document.getElementById('rule-50'); if(r50) r50.textContent=fmt(c.rev*p50);
+  const r30=document.getElementById('rule-30'); if(r30) r30.textContent=fmt(c.rev*p30);
+  const r20=document.getElementById('rule-20'); if(r20) r20.textContent=fmt(c.rev*p20);
+  const yrs=fiscalMeta.vstYears||62;
+  const yl=document.getElementById('vst-years-label'); if(yl) yl.textContent=`Sur ${yrs} ans`;
+  const vm=document.getElementById('vst-mois'); if(vm) vm.textContent=fmt(c.charges);
+  const va=document.getElementById('vst-an'); if(va) va.textContent=fmt(c.charges*12);
+  const v62=document.getElementById('vst-62'); if(v62) v62.textContent=fmt(c.charges*12*yrs);
+  const ep=document.getElementById('ep-rate-box'); if(ep) ep.textContent=`Taux d'épargne actuel : ${pct(c.tauxEp)}`;
 }
 
 // ============================================================
@@ -1376,8 +1523,10 @@ function renderProfilesList(){
 
 function switchProfile(id){
   saveProfileData();
+  saveFiscalMeta();
   activeProfileId=id;
   loadProfileData();
+  loadFiscalMeta();
   renderProfilesList();
   renderAll();
   toast('Profil changé','g');
@@ -1427,6 +1576,22 @@ document.addEventListener('keydown',e=>{
     ['sheet-add','sheet-edit','sheet-profiles'].forEach(closeSheet);
   }
 });
+
+
+// ============================================================
+// FISCAL EDIT MODE
+// ============================================================
+let fiscalEditMode = false;
+function toggleFiscalEdit(){
+  fiscalEditMode = !fiscalEditMode;
+  const screen = document.getElementById('screen-fiscal');
+  const btn = document.getElementById('fiscal-edit-btn');
+  screen.classList.toggle('fiscal-editing', fiscalEditMode);
+  btn.classList.toggle('active', fiscalEditMode);
+  btn.innerHTML = fiscalEditMode
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Terminé'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifier';
+}
 
 // ============================================================
 // SERVICE WORKER
