@@ -1005,7 +1005,6 @@ function loadTheme(){
 // ============================================================
 function init() {
   loadTheme();
-  loadFiscalMeta();
   loadProfilesMeta();
   loadProfileData();
   loadFiscalMeta();
@@ -1238,21 +1237,6 @@ function loadFiscalMeta(){
   } catch(e){}
 }
 function saveFiscalMeta(){
-  // read inputs back into fiscalMeta
-  const ti = v => { const el=document.getElementById(v); return el?el.value:null; };
-  const tn = v => { const el=document.getElementById(v); return el?parseFloat(el.value)||0:0; };
-  if(ti('fiscal-tranche-titre')) fiscalMeta.trancheTitre=ti('fiscal-tranche-titre');
-  if(ti('fiscal-lep-titre')) fiscalMeta.lepTitre=ti('fiscal-lep-titre');
-  fiscalMeta.lepPlafond=tn('lep-plafond')||21353;
-  if(ti('fiscal-regle-titre')) fiscalMeta.regleTitre=ti('fiscal-regle-titre');
-  if(ti('rule-lbl-50')) fiscalMeta.regleLbl50=ti('rule-lbl-50');
-  fiscalMeta.reglePct50=tn('rule-pct-50')||50;
-  if(ti('rule-lbl-30')) fiscalMeta.regleLbl30=ti('rule-lbl-30');
-  fiscalMeta.reglePct30=tn('rule-pct-30')||30;
-  if(ti('rule-lbl-20')) fiscalMeta.regleLbl20=ti('rule-lbl-20');
-  fiscalMeta.reglePct20=tn('rule-pct-20')||20;
-  if(ti('fiscal-vst-titre')) fiscalMeta.vstTitre=ti('fiscal-vst-titre');
-  fiscalMeta.vstYears=tn('vst-years')||62;
   localStorage.setItem('bgt_fiscal_'+activeProfileId, JSON.stringify(fiscalMeta));
 }
 
@@ -1449,7 +1433,7 @@ function confirmAdd(){
 function openEditSheet(key, id){
   editTarget={key,id};
   const isLivret=key==='livret';
-  const arr=isLivret?data.livrets:data[key];
+  const arr=isLivret?data.livrets:(data[key]||[]);
   const item=arr.find(r=>r.id===id);
   if(!item) return;
   const titles={revenus:'Modifier le revenu',fixes:'Modifier la charge',variables:'Modifier la charge',livret:'Modifier le livret'};
@@ -1469,16 +1453,16 @@ function confirmEdit(){
   // Handle fiscal special edits
   if(key==='fiscal-lep'){
     const amount=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
-    if(!isNaN(amount)){fiscalMeta.lepPlafond=amount;saveFiscalMeta2();renderFiscalite(calcs());}
+    if(!isNaN(amount)){fiscalMeta.lepPlafond=amount;saveFiscalMeta();renderFiscalite(calcs());}
     closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
   }
   if(key==='fiscal-vst'){
     const amount=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
-    if(!isNaN(amount)){fiscalMeta.vstYears=amount;saveFiscalMeta2();renderFiscalite(calcs());}
+    if(!isNaN(amount)){fiscalMeta.vstYears=amount;saveFiscalMeta();renderFiscalite(calcs());}
     closeSheet('sheet-edit'); toast('Modifié ✓','g'); return;
   }
   const isLivret=key==='livret';
-  const arr=isLivret?data.livrets:data[key];
+  const arr=isLivret?data.livrets:(data[key]||[]);
   const item=arr.find(r=>r.id===id);
   if(!item) return;
   const name=document.getElementById('edit-name').value.trim();
@@ -1578,23 +1562,6 @@ document.addEventListener('keydown',e=>{
 
 
 
-// ============================================================
-// FISCAL EDIT HELPERS
-// ============================================================
-let fiscalMeta = {
-  lepPlafond: 21353,
-  vstYears: 62,
-  ruleLbl50:'Essentiel', rulePct50:50,
-  ruleLbl30:'Plaisir',   rulePct30:30,
-  ruleLbl20:'Épargne',   rulePct20:20,
-};
-
-function loadFiscalMeta(){
-  try{const s=localStorage.getItem('monark_fiscal');if(s) fiscalMeta=JSON.parse(s);}catch(e){}
-}
-function saveFiscalMeta2(){
-  localStorage.setItem('monark_fiscal',JSON.stringify(fiscalMeta));
-}
 
 function openFiscalLepEdit(){
   editTarget={key:'fiscal-lep',id:0};
